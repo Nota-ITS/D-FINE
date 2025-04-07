@@ -30,12 +30,12 @@ def train_one_epoch(
     optimizer: torch.optim.Optimizer,
     device: torch.device,
     epoch: int,
-    use_wandb: bool,
+    use_mlflow: bool,
     max_norm: float = 0,
     **kwargs,
 ):
-    if use_wandb:
-        import wandb
+    if use_mlflow:
+        import mlflow
 
     model.train()
     criterion.train()
@@ -137,10 +137,9 @@ def train_one_epoch(
             for k, v in loss_dict_reduced.items():
                 writer.add_scalar(f"Loss/{k}", v.item(), global_step)
 
-    if use_wandb:
-        wandb.log(
-            {"lr": optimizer.param_groups[0]["lr"], "epoch": epoch, "train/loss": np.mean(losses)}
-        )
+    if use_mlflow:
+        mlflow.log_metric("train/loss", np.mean(losses), step=epoch)
+        mlflow.log_metric("lr", optimizer.param_groups[0]["lr"], step=epoch)
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
@@ -156,11 +155,11 @@ def evaluate(
     coco_evaluator: CocoEvaluator,
     device,
     epoch: int,
-    use_wandb: bool,
+    use_mlflow: bool,
     **kwargs,
 ):
-    if use_wandb:
-        import wandb
+    if use_mlflow:
+        import mlflow
 
     model.eval()
     criterion.eval()
@@ -232,10 +231,9 @@ def evaluate(
     # Conf matrix, F1, Precision, Recall, box IoU
     metrics = Validator(gt, preds).compute_metrics()
     print("Metrics:", metrics)
-    if use_wandb:
-        metrics = {f"metrics/{k}": v for k, v in metrics.items()}
-        metrics["epoch"] = epoch
-        wandb.log(metrics)
+    if use_mlflow:
+        for k, v in metrics.items():
+            mlflow.log_metric(f"eval_metrics/{k}", v, step=epoch)
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()

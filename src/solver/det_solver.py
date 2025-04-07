@@ -23,15 +23,12 @@ class DetSolver(BaseSolver):
         args = self.cfg
         metric_names = ["AP50:95", "AP50", "AP75", "APsmall", "APmedium", "APlarge"]
 
-        if self.use_wandb:
-            import wandb
+        if self.use_mlflow:
+            import mlflow
 
-            wandb.init(
-                project=args.yaml_cfg["project_name"],
-                name=args.yaml_cfg["exp_name"],
-                config=args.yaml_cfg,
-            )
-            wandb.watch(self.model)
+            mlflow.set_tracking_uri(args.yaml_cfg["tracking_uri"])
+            mlflow.set_experiment(args.yaml_cfg["exp_name"])
+            mlflow.start_run(run_name=args.yaml_cfg["run_name"])
 
         n_parameters, model_stats = stats(self.cfg)
         print(model_stats)
@@ -50,7 +47,7 @@ class DetSolver(BaseSolver):
                 self.evaluator,
                 self.device,
                 self.last_epoch,
-                self.use_wandb
+                self.use_mlflow
             )
             for k in test_stats:
                 best_stat["epoch"] = self.last_epoch
@@ -87,7 +84,7 @@ class DetSolver(BaseSolver):
                 scaler=self.scaler,
                 lr_warmup_scheduler=self.lr_warmup_scheduler,
                 writer=self.writer,
-                use_wandb=self.use_wandb,
+                use_mlflow=self.use_mlflow,
                 output_dir=self.output_dir,
             )
 
@@ -113,7 +110,7 @@ class DetSolver(BaseSolver):
                 self.evaluator,
                 self.device,
                 epoch,
-                self.use_wandb,
+                self.use_mlflow,
                 output_dir=self.output_dir,
             )
 
@@ -177,12 +174,13 @@ class DetSolver(BaseSolver):
                 "n_parameters": n_parameters,
             }
 
-            if self.use_wandb:
-                wandb_logs = {}
+            if self.use_mlflow:
                 for idx, metric_name in enumerate(metric_names):
-                    wandb_logs[f"metrics/{metric_name}"] = test_stats["coco_eval_bbox"][idx]
-                wandb_logs["epoch"] = epoch
-                wandb.log(wandb_logs)
+                    mlflow.log_metric(
+                        f"metrics/{metric_name}",
+                        test_stats["coco_eval_bbox"][idx],
+                        step=epoch,
+                    )
 
             if self.output_dir and dist_utils.is_main_process():
                 with (self.output_dir / "log.txt").open("a") as f:
@@ -217,7 +215,7 @@ class DetSolver(BaseSolver):
             self.evaluator,
             self.device,
             epoch=-1,
-            use_wandb=False,
+            use_mlflow=False,
         )
 
         if self.output_dir:
