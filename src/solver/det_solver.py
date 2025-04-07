@@ -119,6 +119,14 @@ class DetSolver(BaseSolver):
                 if self.writer and dist_utils.is_main_process():
                     for i, v in enumerate(test_stats[k]):
                         self.writer.add_scalar(f"Test/{k}_{i}".format(k), v, epoch)
+                
+                if self.use_mlflow and dist_utils.is_main_process():
+                    for i, v in enumerate(test_stats[k]):
+                        mlflow.log_metric(
+                            f"Eval/metrics/{k}_{i}".format(k),
+                            v,
+                            step=epoch,
+                        )
 
                 if k in best_stat:
                     best_stat["epoch"] = (
