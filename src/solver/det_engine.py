@@ -136,6 +136,12 @@ def train_one_epoch(
                 writer.add_scalar(f"Lr/pg_{j}", pg["lr"], global_step)
             for k, v in loss_dict_reduced.items():
                 writer.add_scalar(f"Loss/{k}", v.item(), global_step)
+        if use_mlflow and dist_utils.is_main_process() and global_step % 10 == 0:
+            mlflow.log_metric("train/loss/total", loss_value.item(), step=global_step)
+            for j, pg in enumerate(optimizer.param_groups):
+                mlflow.log_metric(f"train/lr/pg_{j}", pg["lr"], step=global_step)
+            for k, v in loss_dict_reduced.items():
+                mlflow.log_metric(f"train/loss/{k}", v.item(), step=global_step)
 
     if use_mlflow:
         mlflow.log_metric("train/loss", np.mean(losses), step=epoch)
